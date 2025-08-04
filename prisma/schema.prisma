@@ -1,0 +1,254 @@
+model Commission {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  email       String
+  description String
+  budget      String?
+  status      CommissionStatus @default(PENDING)
+  createdAt   DateTime @default(now())
+
+  userId      String?
+  artistId    String?
+  user        User? @relation("UserCommissions", fields: [userId], references: [id])
+  artist      User? @relation("CommissionArtist", fields: [artistId], references: [id])
+}
+
+enum CommissionStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+// Prisma schema for MongoDB
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String?
+  firstName     String?
+  lastName      String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  phone         String?
+  city          String?
+  bio           String?
+  isArtist      Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  artworks          Artwork[]
+  bids              Bid[]
+  orders            Order[]
+  posts             Post[]
+  comments          Comment[]
+  memberships       CommunityMember[]
+  accounts          Account[]
+  sessions          Session[]
+  artistApplication ArtistApplication?
+  notifications     Notification[]
+  auctionsWon       Auction[] @relation("AuctionWinner")
+
+  commissionsRequested Commission[] @relation("UserCommissions")
+  commissionsAssigned  Commission[] @relation("CommissionArtist")
+}
+
+model Artwork {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String
+  imageUrl    String
+  images      String[]
+  price       Float
+  status      ArtStatus @default(FOR_SALE)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+// Prisma schema for MongoDB
+
+  artistId String
+  artist   User?   @relation(fields: [artistId], references: [id])
+  auction  Auction?
+  order    Order?
+}
+
+model Auction {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  startTime   DateTime
+  endTime     DateTime
+  startingBid Float
+  currentBid  Float?
+  status      AuctionStatus @default(ACTIVE)
+  winnerId    String?
+  winner      User?    @relation("AuctionWinner", fields: [winnerId], references: [id])
+  concludedAt DateTime?
+  artworkId   String   @unique
+  artwork     Artwork? @relation(fields: [artworkId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  bids        Bid[]
+}
+
+enum AuctionStatus {
+  ACTIVE
+  ENDED
+  CANCELLED
+}
+
+model Order {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  amount    Float
+  paymentId String      @unique
+  status    OrderStatus @default(PENDING)
+  createdAt DateTime    @default(now())
+
+  buyerId   String
+  buyer     User? @relation(fields: [buyerId], references: [id])
+
+  artworkId String  @unique
+  artwork   Artwork? @relation(fields: [artworkId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model Bid {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  amount    Float
+  createdAt DateTime @default(now())
+
+  auctionId String
+  auction   Auction? @relation(fields: [auctionId], references: [id])
+  userId    String
+  user      User? @relation(fields: [userId], references: [id])
+}
+
+model Community {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  description String
+  createdAt DateTime @default(now())
+  creatorId String
+  members   CommunityMember[]
+  posts     Post[]
+}
+
+model CommunityMember {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  artist      User? @relation("CommissionArtist", fields: [artistId], references: [id])
+  community   Community? @relation(fields: [communityId], references: [id])
+  userId      String
+  user        User? @relation(fields: [userId], references: [id])
+
+  @@unique([communityId, userId])
+}
+
+model Post {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   Json?
+  createdAt DateTime @default(now())
+
+  authorId    String
+  author      User? @relation(fields: [authorId], references: [id])
+  communityId String
+  community   Community? @relation(fields: [communityId], references: [id])
+  comments    Comment[]
+}
+
+model Comment {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  text      String
+  createdAt DateTime @default(now())
+
+  authorId String
+  author   User? @relation(fields: [authorId], references: [id])
+  postId   String
+  post     Post? @relation(fields: [postId], references: [id])
+}
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User? @relation(fields: [userId], references: [id])
+}
+
+model ArtistApplication {
+  id           String                  @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String                  @unique
+  user         User? @relation(fields: [userId], references: [id])
+  artistName   String
+  portfolioUrl String?
+  bio          String
+  status       ArtistApplicationStatus @default(PENDING)
+  metadata     Json?
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+}
+
+model Notification {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  userId    String
+  user      User? @relation(fields: [userId], references: [id])
+  relatedEntityId String?
+  relatedEntityType String?
+}
+
+enum ArtStatus {
+  FOR_SALE
+  IN_AUCTION
+  SOLD
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum ArtistApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  ARTIST_APPLICATION_APPROVED
+  ARTIST_APPLICATION_REJECTED
+  ARTWORK_SOLD
+  NEW_COMMENT
+  SYSTEM_NOTIFICATION
+  OUTBID
+  AUCTION_RESULT
+}
